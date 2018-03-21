@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use App\Services\WikipediaAccess;
+use App\Services\Tree\Tree;
 
 class Search extends Command
 {
@@ -21,6 +23,12 @@ class Search extends Command
   protected $description = 'Search Wikipedia';
 
   /**
+   * ã„ãã¤ã®ã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰ã‚’å–å¾—ã™ã‚‹ã‹
+   *
+   */
+  private $keywordLimit = 100;
+
+  /**
    * Create a new command instance.
    *
    * @return void
@@ -30,201 +38,7 @@ class Search extends Command
   }
 
   /**
-   * Wikipedia‚ÉƒŠƒNƒGƒXƒg‚·‚éURL‚ð\’z‚·‚éB
-   * ƒŠƒNƒGƒXƒgƒpƒ‰ƒ[ƒ^‚ÍˆÈ‰º
-   *   - titles: $query (ŒŸõ‘ÎÛƒL[ƒ[ƒh)
-   *   - action: 'query' (ŒŸõƒAƒNƒVƒ‡ƒ“)
-   *   - prop: 'revisions' (revision‚ÌŽw’è‚¾‚ª–{•¶Žæ“¾‚Ì‚½‚ß‚É•K—v‚Èƒpƒ‰ƒ[ƒ^)
-   *   - rvprop: 'content' (‹LŽ–‚Ì‰½‚ðŽæ“¾‚·‚é‚© content‚Í–{•¶)
-   *   - rvparse: true (ƒpƒ‰ƒ[ƒ^Žw’è‚µ‚È‚¢)
-   *   - format: 'json' (Žæ“¾Œ`Ž®)
-   */
-  private function getURL($keyword) {
-    $query = urlencode($keyword);
-    return "https://ja.wikipedia.org/w/api.php?titles=$query&action=query&prop=revisions&rvprop=content&rvparse&format=json";
-  }
-
-  /**
-   * Wikipedia API‚©‚çŽæ“¾‚µ‚½JSON‚©‚ç‹LŽ––{•¶‚ÌHTML‚ðŽæ“¾‚·‚éB
-   * \‘¢“I‚É‚ÍˆÈ‰º‚ÌŠK‘w‚Æ‚È‚éB
-   *   query > pages > $pageid > revisions > 0 > *
-   */
-  private function extractHTML($jsonObj) {
-    $pages = $jsonObj['query']['pages'];
-    $pageid;
-    foreach($pages as $key => $val) {
-      $pageid = $key;
-    }
-    return $pages[$pageid]['revisions'][0]['*'];
-  }
-
-  /**
-   * HTML text‚ðXML text‚É•ÏŠ·‚·‚éB
-   */
-  private function html2xml($html) {
-    $domDocument = new \DOMDocument();
-    libxml_use_internal_errors(true);
-    $domDocument->loadHTML($html);
-    libxml_clear_errors();
-    return $domDocument->saveXML();
-  }
-
-  /**
-   * XMLƒIƒuƒWƒFƒNƒg‚©‚çƒL[ƒ[ƒh‚ÌƒŠƒXƒg‚ðŽæ“¾‚·‚éB
-   * \‘¢“I‚É‚ÍˆÈ‰º‚ÌŠK‘w‚Æ‚È‚éB
-   *   body > div > p > a
-   *
-   * ‚³‚ç‚Éã‹L‚Ìaƒ^ƒO‚Ì’†‚Ìhref—v‘f‚©‚çƒL[ƒ[ƒh‚ð’Šo‚·‚éB
-   * href—v‘f‚ÍˆÈ‰º‚ð‘z’èB
-   *   /wiki/ƒL[ƒ[ƒh#ƒnƒbƒVƒ…ƒ^ƒO
-   */
-  private function linkKeywords($xmlObj) {
-
-    $aAry = $xmlObj->body->div->p->a;
-    $keywords = [];
-
-    foreach($aAry as $key => $val) {
-
-      $href = $val['href'];
-      if (strpos($href, '#')) {
-        $hrefHashdevide = explode("#", $href);
-        $href = $hrefHashdevide[0];
-      }
-
-      $directries = explode("/", urldecode($href));
-      if (count($directries) > 2) {
-        $keywords[] = $directries[2];
-      }
-    }
-    return $keywords;
-  }
-
-  /**
-   * ƒL[ƒ[ƒh‚©‚çwikipedia‚ðŒŸõ‚µAŽŸ‚ÌƒL[ƒ[ƒh‚ðŽæ“¾‚·‚éB
-   */
-  private function getNextKeyword($keyword) {
-    $json = file_get_contents($this->getURL($keyword));
-    $jsonFormatted = mb_convert_encoding($json, 'UTF8', 'ASCII,JIS,UTF-8,EUC-JP,SJIS-WIN');
-    $jsonObj = json_decode($jsonFormatted, true);
-    $html = $this->extractHTML($jsonObj);
-    $xml = $this->html2xml($html);
-    $xmlObj = simplexml_load_string($xml);
-    return $this->linkKeywords($xmlObj);
-  }
-
-  /**
-   * ƒL[ƒ[ƒh‚ÌƒŠƒXƒg‚ðŽæ“¾‚·‚éB
-   * Žæ“¾‚·‚éŒ`Ž®‚ÍˆÈ‰º‚Æ‚È‚éB
-   * array(2) {
-   *   ["keyword01"] => array() {}
-   * }
-   * 
-   * 
-   * 
-   * 
-   * 
-   */
-  private function getKeywordList($keyword, $maxKeywordCount) {
-
-    $keywordList = [];
-    $untreated = [$keyword];
-
-    while (count($keywordList) + count($untreated) < $maxKeywordCount + 1) {
-      foreach($untreated as $key => $word) {
-
-        sleep(1);
-        $nextKeywords = $this->getNextKeyword($word);
-        unset($untreated[$key]);
-
-        $keywordList[$word] = $nextKeywords;
-
-        //‚·‚Å‚ÉƒL[ƒ[ƒhƒŠƒXƒg‚É‘¶Ý‚µ‚È‚¯‚ê‚ÎA–¢ˆ—ƒŠƒXƒg‚É‚à’Ç‰Á
-        //–¢ˆ—ƒŠƒXƒg‚É’Ç‰Á‚·‚é‚±‚Æ‚ÅAŒJ‚è•Ô‚µŽæ“¾‚·‚é‚±‚Æ‚ª‚Å‚«‚é
-        foreach($nextKeywords as $nextKey => $nextWord) {
-          if (!array_key_exists($nextWord, $keywordList)) {
-            $untreated[] = $nextWord;
-          }
-        }
-      }
-      $untreated = array_values($untreated);
-    }
-
-    //–¢ˆ—ƒŠƒXƒg‚É‚ ‚é‚à‚Ì‚ðƒŠƒXƒg‚É’Ç‰Á‚µ‚Ä‚¨‚­
-    foreach($untreated as $key => $word) {
-      $keywordList[$word] = NULL;
-    }
-
-    return $keywordList;
-  }
-
-  /**
-   * Žæ“¾‚µ‚½ƒL[ƒ[ƒhƒŠƒXƒg‚©‚çA•\Ž¦—p‚ÌƒcƒŠ[‚ðŽæ“¾‚·‚éB
-   * Žæ“¾‚·‚éŒ`Ž®‚ÍˆÈ‰º‚Æ‚È‚éB
-   * array(2) {
-   *   ["keyword01"] => array() {}
-   * }
-   * 
-   * 
-   * 
-   * 
-   * 
-   * 
-   */
-  private function list2tree($keyword, $keywordList, $maxKeywordCount) {
-
-    $keywordTree = [];
-    $keywordTree[$keyword] = [];
-
-    $untreated = [];
-    $untreated[$keyword] = &$keywordTree[$keyword];
-
-    $addedList = [];
-    $addedList[] = $keyword;
-    $keywordTotal = 0;
-
-    while (true) {
-
-      $currentUntreated = $untreated;
-      foreach($currentUntreated as $key => $wordUnuse) {
-
-        $nextKeywords = $keywordList[$key];
-
-        if ($nextKeywords) {
-          foreach($nextKeywords as $nextKey => $nextWord) {
-
-            if (!in_array($nextWord, $addedList)) {
-              $untreated[$nextWord] = [];
-              $untreated[$key][$nextWord] = &$untreated[$nextWord];
-              $addedList[] = $nextWord;
-
-            } else {
-              $untreated[$key][$nextWord] = "@";
-            }
-
-            $keywordTotal++;
-            if ($keywordTotal === $maxKeywordCount - 1) {
-              if ($untreated[$key][$nextWord]) {
-                $untreated[$key][$nextWord] = $untreated[$key][$nextWord] + "$";
-              } else {
-                $untreated[$key][$nextWord] = "$";
-              }
-              break 3;
-            }
-          }
-        }
-        unset($untreated[$key]);
-      }
-
-      if (count($untreated) === 0) {
-        break;
-      }
-    }
-
-    return $keywordTree;
-  }
-
-  /**
-   * Tree\‘¢‚É‚È‚Á‚Ä‚¢‚éƒL[ƒ[ƒh‚ð•W€o—Í‚Éo—Í‚·‚éB
+   * Treeæ§‹é€ ã«ãªã£ã¦ã„ã‚‹ã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰ã‚’æ¨™æº–å‡ºåŠ›ã«å‡ºåŠ›ã™ã‚‹ã€‚
    */
   private function showKeywords($keywordTree, $level) {
 
@@ -248,18 +62,26 @@ class Search extends Command
   }
 
   /**
-   * Execute the console command.
+   * ã‚³ãƒžãƒ³ãƒ‰ã‚’å®Ÿè¡Œã™ã‚‹ã€‚
+   * å¼•æ•°ã«ä¸Žãˆã‚‰ã‚ŒãŸã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰ã‹ã‚‰ã€å†å¸°çš„ã«Wikipediaã«ã‚¢ã‚¯ã‚»ã‚¹ã—ã€
+   * ã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰ãƒ„ãƒªãƒ¼ã‚’æ§‹ç¯‰ã—ã€å‡ºåŠ›ã™ã‚‹ã€‚
    *
    * @return mixed
    */
   public function handle() {
 
-    $maxKeywordCount = 100;
-    $keyword = $this->argument("keyword");
+    $argKeyword = $this->argument("keyword");
 
-    $keywordList = $this->getKeywordList($keyword, $maxKeywordCount);
-    $keywordTree = $this->list2tree($keyword, $keywordList, $maxKeywordCount);
-    $this->showKeywords($keywordTree, 0);
+    $keywordTree = Tree::build($argKeyword, $this->keywordLimit, function ($keyword) {
+      sleep(1);
+      return WikipediaAccess::getNextKeyword($keyword);
+    });
+
+    if ($keywordTree[$argKeyword]) {
+      $this->showKeywords($keywordTree, 0);
+    } else {
+      echo "å…¥åŠ›ã•ã‚ŒãŸã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰ã¯Wikipediaã«å­˜åœ¨ã—ãªã„ã‚ˆã†ã§ã™ã€‚\n";
+    }
   }
 
 }

@@ -1,30 +1,33 @@
 
 # Wikitree
 
-## ‹@”\
-Œ»ó‚ÍartisanƒRƒ}ƒ“ƒh‚Ì‚İ‚ÌÀ‘•BÚ×‚ÍˆÈ‰ºQÆB
-[artisanƒRƒ}ƒ“ƒh](app/Console/Commands/readme.md)
+## æ©Ÿèƒ½
+ç¾çŠ¶ã¯artisanã‚³ãƒãƒ³ãƒ‰ã®ã¿ã®å®Ÿè£…ã€‚è©³ç´°ã¯ä»¥ä¸‹å‚ç…§ã€‚  
+[artisanã‚³ãƒãƒ³ãƒ‰](app/Console/Commands/readme.md)
 
 ## SetUp
 
-1. ‚Ü‚¸AƒfƒBƒŒƒNƒgƒŠ‚ğØ‚Á‚ÄA–{ƒvƒƒWƒFƒNƒg‚ğclone‚µ‚Ü‚·B
+1. ã¾ãšã€ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’åˆ‡ã£ã¦ã€æœ¬ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã‚’cloneã—ã¾ã™ã€‚
+
 ```
 mkdir develop
 cd develop
 git clone https://github.com/motojouya/wikitree.git
 ```
 
-2. Ÿ‚ÉLaraDock‚ğclone‚µ‚Ü‚·B
+2. æ¬¡ã«LaraDockã‚’cloneã—ã¾ã™ã€‚
+
 ```
 git clone https://github.com/LaraDock/laradock.git
 ```
 
-¦Docker Tool box‚Ì•û‚ÍˆÈ‰º‚Ìƒuƒ‰ƒ“ƒ`‚ğæ“¾‚µ‚Ä‚­‚¾‚³‚¢B
+â€»Docker Tool boxã®æ–¹ã¯ä»¥ä¸‹ã®ãƒ–ãƒ©ãƒ³ãƒã‚’å–å¾—ã—ã¦ãã ã•ã„ã€‚
 ```
 git clone -b LaraDock-ToolBox https://github.com/LaraDock/laradock.git
 ```
 
-3. 2‚Åclone‚µ‚½laradockƒfƒBƒŒƒNƒgƒŠ‚É“ü‚èİ’è‚ğ‘‚«Š·‚¦‚Ü‚·B
+3. 2ã§cloneã—ãŸlaradockãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã«å…¥ã‚Šè¨­å®šã‚’æ›¸ãæ›ãˆã¾ã™ã€‚
+
 ```
 cd laradock/
 cp env-example .env
@@ -35,13 +38,15 @@ vi .env
 APPLICATION=../wikitree/
 ```
 
-4. docker-compose‚Åƒrƒ‹ƒh‚µAworkspace‚É“ü‚è‚Ü‚·B
+4. docker-composeã§ãƒ“ãƒ«ãƒ‰ã—ã€workspaceã«å…¥ã‚Šã¾ã™ã€‚
+
 ```
 docker-compose up -d workspace
 docker-compose exec workspace bash
 ```
 
-5. ƒRƒ“ƒeƒi“à‚Åcomposer‚©‚ç•K—vƒ‚ƒWƒ…[ƒ‹‚ğƒCƒ“ƒXƒg[ƒ‹
+5. ã‚³ãƒ³ãƒ†ãƒŠå†…ã§composerã‹ã‚‰å¿…è¦ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã‚’ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«
+
 ```
 composer install
 ```
